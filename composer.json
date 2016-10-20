@@ -1,0 +1,11 @@
+{
+    "name": "wizofgoz/crester",
+    "description": "PHP library for interacting with the Eve Online CREST and XML APIs through a fluent, english-like interface.",
+    "require": {
+        "php": "^5.3.3 || ^7.0",
+		"predis/predis": "^1.1"
+    },
+    "autoload": {
+        "psr-4": {"Crester\\": "src/"}
+    }
+}
