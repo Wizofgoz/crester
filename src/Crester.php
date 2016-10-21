@@ -3,18 +3,32 @@ namespace Crester;
 use \Crester\Exceptions;
 class Crester
 {
+	const AUTH_URL = 'https://login.eveonline.com/oauth/authorize/';
+	
 	protected static $shared = array();
 	
 	protected static $parameters = array();
 	/*
 	*	Constructor - Takes Authorization Code from Eve SSO
 	*/
-	public function __construct($AuthCode)
+	public function __construct($AuthCode, $State)
 	{
+		if(!isset($_SESSION['sso_state']))
+			throw new \Exception('State not found in session');
+		if($_SESSION['sso_state'] !== $State)
+			throw new \Exception('States do not match');
 		self::$parameters['auth_code'] = $AuthCode;
 		$crest = $this->crest();
 		self::$parameters['token'] = $crest->getToken();
 		self::$parameters['expiration'] = $crest->getTokenExpiration();
+	}
+	
+	public static function redirect()
+	{
+		$core_config = require(__DIR__.'/Config/CREST.php');
+		$state = url_encode(hash("sha256", time()));
+		$_SESSION['sso_state'] = $state
+		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes'])."&state=".$state);
 	}
 	
 	public function crest()
