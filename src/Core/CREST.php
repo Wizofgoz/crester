@@ -6,27 +6,27 @@ class CREST extends CRESTBase
 	/*
 	*	Code retrieved from SSO
 	*/
-	private $Authorization_Code;
+	protected $Authorization_Code;
 	/*
 	*	Token used to authenticate CREST calls
 	*/
-	private $Access_Token;
+	protected $Access_Token;
 	/*
 	*	Whether the authorization code has been verified
 	*/
-	private $Verified_Code = false;
+	protected $Verified_Code = false;
 	/*
 	*	Route for API calls to follow
 	*/
-	private $APIRoute;
+	protected $APIRoute;
 	/*
 	*	Route used so far in call stack
 	*/
-	private $UsedRoute;
+	protected $UsedRoute;
 	/*
 	*	Rate Limiter class makes sure API calls don't exceed limits
 	*/
-	private $RateLimiter;
+	protected $RateLimiter;
 	/*
 	*
 	*/
@@ -34,27 +34,35 @@ class CREST extends CRESTBase
 	/*
 	*	Token used to get a fresh access token
 	*/
-	private $RefreshToken;
+	protected $RefreshToken;
 	/*
 	*	When the current access token needs to be refreshed
 	*/
-	private $RefreshTime;
+	protected $RefreshTime;
 	/*
 	*	ClientID for Eve Server Authentication
 	*/
-	private $client_id;
+	protected $client_id;
 	/*
 	*	SecretKey for Eve Server Authentication
 	*/
-	private $secret_key;
+	protected $secret_key;
 	
-	public function __construct($client_id, $secret_key, $auth_code, RateLimiter $limiter, CacheInterface $Cache)
+	public function __construct($client_id, $secret_key, $code, RateLimiter $limiter, CacheInterface $Cache, $refresh = false)
 	{
 		$this->client_id = $client_id;
 		$this->secret_key = $secret_key;
 		$this->RateLimiter = $limiter;
 		$this->Cache = $Cache;
-		$this->setAuthCode($auth_code);
+		if($refresh !== true)
+		{
+			$this->setAuthCode($code);
+		}
+		else
+		{
+			$this->RefreshTime = time() - 3600;	//	time in the past so refresh goes through
+			$this->refresh();
+		}
 	}
 	
 	public function setAuthCode($Code)
@@ -70,26 +78,65 @@ class CREST extends CRESTBase
 	/*
 	*	Returns whether the handler has a valid session running
 	*/
-	public function getStatus(){
+	public function getStatus()
+	{
 		return $this->Verified_Code;
 	}
 	/*
 	*	Returns current Bearer Token
 	*/
-	public function getToken(){
+	public function getToken()
+	{
 		return $this->Access_Token;
+	}
+	
+	public function getRefreshToken()
+	{
+		return $this->RefreshToken;
 	}
 	
 	public function getExpiration()
 	{
 		return $this->RefreshTime;
 	}
+	
+	public function node($key, $value)
+	{
+		if(!isset($this->APIRoute))
+		{
+			$this->APIRoute = new \SPLQueue();
+		}
+		$this->APIRoute->enqueue(new RouteNode($key, $value));
+		return $this;
+	}
+	
+	public function get()
+	{
+		return $this->makeCall('GET');
+	}
+	
+	public function post(array $data = [])
+	{
+		return $this->makeCall('POST', $data);
+	}
+	
+	public function put(array $data = [])
+	{
+		return $this->makeCall('PUT', $data);
+	}
+	
+	public function delete()
+	{
+		return $this->makeCall('DELETE');
+	}
+	
     /*
 	*	Verifies Authorization code and sets Access Token
 	*/
-	public function verifyCode(){
+	public function verifyCode()
+	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI(CREST_LOGIN, "POST", AUTHORIZATION_BASIC, "grant_type=authorization_code&code=".$this->Authorization_Code))
+		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=authorization_code&code=".$this->Authorization_Code))
 		{
 			$Result = json_decode($Result, true);
 			if(isset($Result['access_token']) && $Result['access_token'] != "")
@@ -115,9 +162,10 @@ class CREST extends CRESTBase
 	/*
 	*	Specialized call to get character info of logged in user
 	*/
-	public function getCharacterInfo(){
+	public function getCharacterInfo()
+	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI(CREST_VERIFY, "GET", AUTHORIZATION_BEARER, ""))
+		if($Result = $this->callAPI(self::CREST_VERIFY, "GET", self::AUTHORIZATION_BEARER, ""))
 		{
 			return json_decode($Result, true);
 		}
@@ -131,9 +179,10 @@ class CREST extends CRESTBase
 	/*
 	*	Make a custom call to given URL with given Method (GET, POST, PUT, DELETE)
 	*/
-	public function customCall($URL, $Method){
+	public function customCall($URL, $Method)
+	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI($URL, $Method, AUTHORIZATION_BEARER, ""))
+		if($Result = $this->callAPI($URL, $Method, self::AUTHORIZATION_BEARER, ""))
 		{
 			return json_decode($Result, true);
 		}
@@ -147,12 +196,13 @@ class CREST extends CRESTBase
 	/*
 	*	Uses Refresh Token to get fresh Access Token
 	*/
-	private function refresh(){
+	protected function refresh()
+	{
 		// check if access token is valid
 		if(time() >= $this->RefreshTime)
 		{
 			// if call did not throw an error, parse result and set new AccessToken
-			if($Result = $this->callAPI(CREST_LOGIN, "POST", AUTHORIZATION_BASIC, "grant_type=refresh_token&refresh_token=".$this->RefreshToken))
+			if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=refresh_token&refresh_token=".$this->RefreshToken))
 			{
 				$Result = json_decode($Result, true);
 				$this->Access_Token = $Result['access_token'];
@@ -175,14 +225,14 @@ class CREST extends CRESTBase
 	/*
 	*	Takes in path (SplQueue) and start recursive calls
 	*/
-	public function makeCall($Route, $Method, $Data = ""){
+	protected function makeCall($Method, array $Data = [])
+	{
 		// Check that the route is a valid queue
 		if($Route->count() > 0)
 		{
-			$this->APIRoute = $Route;
-			$this->UsedRoute = CREST_AUTH_ROOT;
+			$this->UsedRoute = self::CREST_AUTH_ROOT;
 			try{
-				$LeafURL = $this->recursiveCall(CREST_AUTH_ROOT);
+				$LeafURL = $this->recursiveCall(self::CREST_AUTH_ROOT);
 			}
 			catch(CRESTAPIException $e){
 				echo $e;
@@ -196,7 +246,7 @@ class CREST extends CRESTBase
 			// if nothing in cache, call API
 			else
 			{
-				if($Result = $this->callAPI($LeafURL, $Method, AUTHORIZATION_BEARER, $Data))
+				if($Result = $this->callAPI($LeafURL, $Method, self::AUTHORIZATION_BEARER, $Data))
 				{
 					$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 					return $Result;
@@ -215,7 +265,8 @@ class CREST extends CRESTBase
 	/*
 	*	Runs recursive calls down the route
 	*/
-	private function recursiveCall($URL){
+	protected function recursiveCall($URL)
+	{
 		// check cache
 		if($Result = $this->Cache->crestCheck($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value))
 		{
@@ -232,7 +283,7 @@ class CREST extends CRESTBase
 		// if nothing in cache, call API
 		else
 		{
-			if($Result = $this->callAPI($URL, "GET", $this->AUTHORIZATION_BEARER, ""))
+			if($Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, ""))
 			{
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				try{
@@ -305,7 +356,8 @@ class CREST extends CRESTBase
 	/*
 	*	Makes a call to the CREST API
 	*/
-	private function callAPI($URL, $Method, $AuthorizationType, $Data){
+	protected function callAPI($URL, $Method, $AuthorizationType, array $Data = [])
+	{
 		//echo "<br>URL: '$URL' Method: '$Method' Auth Type: '$AuthorizationType' Data: '$Data'";
 		// set common settings
 		$Options = array(
@@ -317,7 +369,7 @@ class CREST extends CRESTBase
 			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
 		);
 		// differentiate between authentication methods
-		if($AuthorizationType === AUTHORIZATION_BASIC)
+		if($AuthorizationType === self::AUTHORIZATION_BASIC)
 		{
 			$encode=base64_encode($this->CLIENT_ID.":".$this->SECRET_KEY);
 			$Host = explode("/", $URL);
@@ -378,17 +430,18 @@ class CREST extends CRESTBase
 	/*
 	*	Determines which search function to use and starts search
 	*/
-	private function search($array, $routenode){
+	protected function search($array, $routenode)
+	{
 		switch($routenode->Type)
 		{
 			// Search for key
-			case 0:
+			case $routenode::TYPE_KEY_SEARCH:
 				return $this->ksearch($array, $routenode->Key);
 			// Search for key-value pair
-			case 1:
+			case $routenode::TYPE_KEY_VALUE:
 				return $this->kvsearch($array, $routenode->Key, $routenode->Value);
 			// Search for key path
-			case 2:
+			case $routenode::TYPE_KEY_PATH:
 				// search down the path and return last result
 				for($i=0;$i<count($routenode->Key);$i++)
 				{
@@ -402,7 +455,7 @@ class CREST extends CRESTBase
 	/*
 	*	Starts Key-Value recursive search on multi-arrays
 	*/
-	private function kvsearch($array, $key, $value)
+	protected function kvsearch($array, $key, $value)
 	{
 		$results = array();
 		$this->kvsearch_r($array, $key, $value, $results);
@@ -411,7 +464,7 @@ class CREST extends CRESTBase
 	/*
 	*	Does recursive search on multi-arrays to find key-value pairs
 	*/
-	private function kvsearch_r($array, $key, $value, &$results)
+	protected function kvsearch_r($array, $key, $value, &$results)
 	{
 		if (!is_array($array)) {
 			return;
@@ -428,7 +481,7 @@ class CREST extends CRESTBase
 	/*
 	*	starts recursive search on multi-arrays to find key
 	*/
-	private function ksearch($array, $key){
+	protected function ksearch($array, $key){
 		// add new search option for key-value
 		$results = array();
 		$this->ksearch_r($array, $key, $results);
@@ -437,7 +490,7 @@ class CREST extends CRESTBase
 	/*
 	*	Does recursive search on multi-arrays to find key
 	*/
-	private function ksearch_r($array, $key, &$results){
+	protected function ksearch_r($array, $key, &$results){
 		if (!is_array($array)) {
 			return;
 		}

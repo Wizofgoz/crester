@@ -38,30 +38,24 @@ class RouteNode
 	*	@param mixed $Key
 	*	@param string $Value
 	*/
-	public function __construct($Key, $Value = ""){
+	public function __construct($Key, $Value = NULL){
 		if(!is_array($Key))
 		{
-			if($Value == "")
+			if($Value === NULL)
 			{
-				$this->Type = TYPE_KEY_SEARCH;
+				$this->Type = self::TYPE_KEY_SEARCH;
 			}
 			else
 			{
-				$this->Type = TYPE_KEY_VALUE;
+				$this->Type = self::TYPE_KEY_VALUE;
 			}
 		}
 		else
 		{
-			$this->Type = TYPE_KEY_PATH;
+			$this->Type = self::TYPE_KEY_PATH;
 		}
 		$this->Key = $Key;
 		$this->Value = $Value;
 	}
 }
-$handler = new CRESTHandler();
-$handler->node('DeepSpace.')->get();
-
-$handler->node(['id'=>1223])->get();
-
-$handler->node([])->get();
 ?>
