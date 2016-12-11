@@ -1,6 +1,7 @@
 <?php
 namespace Crester\Core;
 use \Crester\Core\CRESTBase as CRESTBase;
+use \Crester\Exceptions\CRESTAPIException;
 class CREST extends CRESTBase
 {
 	/*
@@ -370,7 +371,7 @@ class CREST extends CRESTBase
 		// differentiate between authentication methods
 		if($AuthorizationType === self::AUTHORIZATION_BASIC)
 		{
-			$encode=base64_encode($this->CLIENT_ID.":".$this->SECRET_KEY);
+			$encode=base64_encode($this->client_id.":".$this->secret_key);
 			$Host = explode("/", $URL);
 			$Options[CURLOPT_HTTPHEADER] = array(
 				"content-type: application/x-www-form-urlencoded",
