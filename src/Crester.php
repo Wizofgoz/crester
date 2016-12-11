@@ -48,7 +48,7 @@ class Crester
 		self::$parameters['auth_code'] = $AuthCode;
 		$crest = $this->crest();
 		self::$parameters['token'] = $crest->getToken();
-		self::$parameters['expiration'] = $crest->getTokenExpiration();
+		self::$parameters['expiration'] = $crest->getExpiration();
 		self::$parameters['refresh'] = $crest->getRefreshToken();
 	}
 	
