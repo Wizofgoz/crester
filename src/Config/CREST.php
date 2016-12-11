@@ -7,6 +7,7 @@ return [
 	'secret_key' => 'your_secret_key_here',
 	'callback_url' => 'https://your-application.com/callback',
 	'user_agent' => 'CREST-Handler',
+	'check_state' => false,
 	'limiter' => [
 		'limit' => 60,
 		'frequency' =>	60,

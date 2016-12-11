@@ -17,24 +17,32 @@ class Crester
 	*/
 	public function __construct()
 	{
-		\session_start();
 		require_once(__DIR__.'/vendor/autoload.php');
 	}
 	
 	public function redirect()
 	{
 		$core_config = $this->getCoreConfig();
-		$state = \urlencode(\hash("sha256", \time()));
-		$_SESSION['sso_state'] = $state;
-		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes'])."&state=".$state);
+		$state_str = "";
+		if($core_config['check_state'])
+		{
+			$state = \urlencode(\hash("sha256", \time()));
+			$_SESSION['sso_state'] = $state;
+			$state_str = "&state=$state";
+		}
+		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes']).$state_str);
 	}
 	
 	public function handleCallback($AuthCode, $State)
 	{
-		if(!isset($_SESSION['sso_state']))
-			throw new \Exception('State not found in session');
-		if($_SESSION['sso_state'] !== $State)
-			throw new \Exception('States do not match');
+		$core_config = $this->getCoreConfig();
+		if($core_config['check_state'])
+		{
+			if(!isset($_SESSION['sso_state']))
+				throw new \Exception('State not found in session');
+			if($_SESSION['sso_state'] !== $State)
+				throw new \Exception('States do not match');
+		}
 		self::$parameters['auth_code'] = $AuthCode;
 		$crest = $this->crest();
 		self::$parameters['token'] = $crest->getToken();
@@ -76,7 +84,7 @@ class Crester
 		if(!isset(self::$shared['cache']))
 		{
 			$core_config = $this->getCacheConfig();
-			return self::$shared['cache'] = new Cache($core_config['driver'], $core_config['enabled'], $core_config['default_length'], $core_config[$core_config['driver']]);
+			return self::$shared['cache'] = new Cache($core_config['enabled'], $this->getCacheDriver(), $core_config['default_length']);
 		}
 		return self::$shared['cache'];
 	}
@@ -107,6 +115,23 @@ class Crester
 			return self::$shared['cache'] = require(__DIR__.'/Config/Cache.php');
 		}
 		return self::$shared['cache'];
+	}
+
+	protected function getCacheDriver()
+	{
+		$cache_config = $this->getCacheConfig();
+		if(!$cache_config['enabled'])
+			return NULL;
+		switch($cache_config['driver'])
+		{
+			case 'database':
+				return new \Crester\Cache\DBHandler($cache_config['database']);
+				break;
+			case 'redis':
+				// disabled
+			default:
+				throw new \Exception('Unknown cache driver specified in config')
+		}
 	}
 }
 ?>

@@ -9,7 +9,7 @@ class Cache
 	
 	private $Default_Cache_Length;
 	
-	public function __construct(CacheInterface $Driver, $Enabled = true, $Default = 60*20)
+	public function __construct($Enabled, CacheInterface $Driver = NULL, $Default = 60*20)
 	{
 		$this->Driver = $Driver;
 		$this->Enabled = $Enabled;
