@@ -48,12 +48,12 @@ class CREST extends CRESTBase
 	*/
 	protected $secret_key;
 	
-	public function __construct($client_id, $secret_key, $code, RateLimiter $limiter, CacheInterface $Cache, $refresh = false)
+	public function __construct($client_id, $secret_key, $code, RateLimiter $limiter, \Crester\Cache\Cache $cache, $refresh = false)
 	{
 		$this->client_id = $client_id;
 		$this->secret_key = $secret_key;
 		$this->RateLimiter = $limiter;
-		$this->Cache = $Cache;
+		$this->Cache = $cache;
 		if($refresh !== true)
 		{
 			$this->setAuthCode($code);
