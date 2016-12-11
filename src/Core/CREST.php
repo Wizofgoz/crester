@@ -114,29 +114,29 @@ class CREST extends CRESTBase
 	public function get()
 	{
 		$response = $this->makeCall('GET');
-		$this->APIRoute = array();
-		return $response;
+		$this->APIRoute = new \SPLQueue();
+		return json_decode($response, true);
 	}
 	
 	public function post(array $data = [])
 	{
 		$response = $this->makeCall('POST', $data);
-		$this->APIRoute = array();
-		return $response;
+		$this->APIRoute = new \SPLQueue();
+		return json_decode($response, true);
 	}
 	
 	public function put(array $data = [])
 	{
 		$response = $this->makeCall('PUT', $data);
-		$this->APIRoute = array();
-		return $response;
+		$this->APIRoute = new \SPLQueue();
+		return json_decode($response, true);
 	}
 	
 	public function delete()
 	{
 		$response = $this->makeCall('DELETE');
-		$this->APIRoute = array();
-		return $response;
+		$this->APIRoute = new \SPLQueue();
+		return json_decode($response, true);
 	}
 	
     /*
@@ -173,7 +173,7 @@ class CREST extends CRESTBase
 	public function getCharacterInfo()
 	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI(self::CREST_VERIFY, "GET", self::AUTHORIZATION_BEARER, ""))
+		if($Result = $this->callAPI(self::CREST_VERIFY, "GET", self::AUTHORIZATION_BEARER, array()))
 		{
 			return \json_decode($Result, true);
 		}
@@ -190,7 +190,7 @@ class CREST extends CRESTBase
 	public function customCall($URL, $Method)
 	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI($URL, $Method, self::AUTHORIZATION_BEARER, ""))
+		if($Result = $this->callAPI($URL, $Method, self::AUTHORIZATION_BEARER, array()))
 		{
 			return \json_decode($Result, true);
 		}
@@ -291,7 +291,7 @@ class CREST extends CRESTBase
 		// if nothing in cache, call API
 		else
 		{
-			if($Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, ""))
+			if($Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, array()))
 			{
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				try{

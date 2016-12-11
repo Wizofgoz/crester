@@ -26,7 +26,7 @@ class Cache
 		}
 		else
 		{
-			return true;
+			return false;
 		}
 	}
 	
@@ -40,7 +40,7 @@ class Cache
 		}
 		else
 		{
-			return true;
+			return false;
 		}
 	}
 	
@@ -54,7 +54,7 @@ class Cache
 		}
 		else
 		{
-			return true;
+			return false;
 		}
 	}
 	

@@ -50,6 +50,7 @@ class Crester
 		self::$parameters['token'] = $crest->getToken();
 		self::$parameters['expiration'] = $crest->getExpiration();
 		self::$parameters['refresh'] = $crest->getRefreshToken();
+		return $crest;
 	}
 	
 	public function fromRefreshToken($refresh_token)
