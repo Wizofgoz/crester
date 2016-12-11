@@ -35,7 +35,7 @@ class Crester
 		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes']).$state_str);
 	}
 	
-	public function handleCallback($AuthCode, $State)
+	public function handleCallback($AuthCode, $State = '')
 	{
 		$core_config = $this->getCoreConfig();
 		if($core_config['check_state'])

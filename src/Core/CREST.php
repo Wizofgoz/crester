@@ -151,7 +151,7 @@ class CREST extends CRESTBase
 			}
 			else
 			{
-				throw new CRESTAPIException('Error: invalid API response');
+				throw new CRESTAPIException('Error: invalid API response. '. implode(', ', $Result));
 			}
 		}
 		// else, return false
