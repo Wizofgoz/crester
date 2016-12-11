@@ -147,7 +147,6 @@ class CREST extends CRESTBase
 				$this->RefreshToken = $Result['refresh_token'];
 				//Access Tokens are valid for 20mins and must be refreshed after that
 				$this->RefreshTime = \time()+(60*20);
-				$this->XML->setToken($this->Access_Token);
 			}
 			else
 			{
