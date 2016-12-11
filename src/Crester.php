@@ -130,7 +130,7 @@ class Crester
 			case 'redis':
 				// disabled
 			default:
-				throw new \Exception('Unknown cache driver specified in config')
+				throw new \Exception('Unknown cache driver specified in config');
 		}
 	}
 }
