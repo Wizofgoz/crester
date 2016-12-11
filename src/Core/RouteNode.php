@@ -1,5 +1,5 @@
 <?php
-namespace \Crester\Core;
+namespace Crester\Core;
 /*
 *	Class for simplifying the creation of each node of a route
 */

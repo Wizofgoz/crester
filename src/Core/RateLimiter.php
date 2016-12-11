@@ -1,5 +1,5 @@
 <?php
-namespace \Crester\Core;
+namespace Crester\Core;
 class RateLimiter
 {
     protected $timestamp = 0;

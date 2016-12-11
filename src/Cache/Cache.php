@@ -1,5 +1,5 @@
 <?php
-namespace \Crester\Cache;
+namespace Crester\Cache;
 class Cache
 {
 	

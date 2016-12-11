@@ -1,5 +1,5 @@
 <?php
-namespace \Crester\Core;
+namespace Crester\Core;
 use \Crester\Exceptions;
 class XMLHandler extends XMLBase
 {
