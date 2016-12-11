@@ -1,8 +1,10 @@
 <?php
 namespace Crester;
 use \Crester\Exceptions;
-use \Crester\Cache;
-use \Crester\Core;
+use \Crester\Cache\Cache;
+use \Crester\Core\CREST;
+use \Crester\Core\RateLimiter;
+use \Crester\Core\XML;
 class Crester
 {
 	const AUTH_URL = 'https://login.eveonline.com/oauth/authorize/';
