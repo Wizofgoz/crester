@@ -304,7 +304,7 @@ class CREST extends CRESTBase
 		if(empty($NewURL))
 		{
 			try{
-				$NextPage = $this->search(\json_decode($Result, true), new \CRESTHandler\RouteNode("next"));
+				$NextPage = $this->search(\json_decode($Result, true), new RouteNode("next"));
 			}
 			catch(CRESTAPIException $e){
 				echo $e;
