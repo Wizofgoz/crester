@@ -113,22 +113,30 @@ class CREST extends CRESTBase
 	
 	public function get()
 	{
-		return $this->makeCall('GET');
+		$response = $this->makeCall('GET');
+		$this->APIRoute = array();
+		return return $response;
 	}
 	
 	public function post(array $data = [])
 	{
-		return $this->makeCall('POST', $data);
+		$response = $this->makeCall('POST', $data);
+		$this->APIRoute = array();
+		return $response;
 	}
 	
 	public function put(array $data = [])
 	{
-		return $this->makeCall('PUT', $data);
+		$response = $this->makeCall('PUT', $data);
+		$this->APIRoute = array();
+		return $response;
 	}
 	
 	public function delete()
 	{
-		return $this->makeCall('DELETE');
+		$response = $this->makeCall('DELETE');
+		$this->APIRoute = array();
+		return $response;
 	}
 	
     /*
