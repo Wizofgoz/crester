@@ -60,7 +60,7 @@ class CREST extends CRESTBase
 		}
 		else
 		{
-			$this->RefreshTime = time() - 3600;	//	time in the past so refresh goes through
+			$this->RefreshTime = \time() - 3600;	//	time in the past so refresh goes through
 			$this->refresh();
 		}
 	}
@@ -100,7 +100,7 @@ class CREST extends CRESTBase
 		return $this->RefreshTime;
 	}
 	
-	public function node($key, $value)
+	public function node($key, $value = NULL)
 	{
 		if(!isset($this->APIRoute))
 		{
@@ -138,14 +138,14 @@ class CREST extends CRESTBase
 		// if api call doesn't return an error, parse it and set values
 		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=authorization_code&code=".$this->Authorization_Code))
 		{
-			$Result = json_decode($Result, true);
+			$Result = \json_decode($Result, true);
 			if(isset($Result['access_token']) && $Result['access_token'] != "")
 			{
 				$this->Access_Token = $Result['access_token'];
 				$this->Verified_Code = true;
 				$this->RefreshToken = $Result['refresh_token'];
 				//Access Tokens are valid for 20mins and must be refreshed after that
-				$this->RefreshTime = time()+(60*20);
+				$this->RefreshTime = \time()+(60*20);
 				$this->XML->setToken($this->Access_Token);
 			}
 			else
@@ -167,7 +167,7 @@ class CREST extends CRESTBase
 		// if api call doesn't return an error, parse it and set values
 		if($Result = $this->callAPI(self::CREST_VERIFY, "GET", self::AUTHORIZATION_BEARER, ""))
 		{
-			return json_decode($Result, true);
+			return \json_decode($Result, true);
 		}
 		// else, return false
 		else
@@ -184,7 +184,7 @@ class CREST extends CRESTBase
 		// if api call doesn't return an error, parse it and set values
 		if($Result = $this->callAPI($URL, $Method, self::AUTHORIZATION_BEARER, ""))
 		{
-			return json_decode($Result, true);
+			return \json_decode($Result, true);
 		}
 		// else, return false
 		else
@@ -199,12 +199,12 @@ class CREST extends CRESTBase
 	protected function refresh()
 	{
 		// check if access token is valid
-		if(time() >= $this->RefreshTime)
+		if(\time() >= $this->RefreshTime)
 		{
 			// if call did not throw an error, parse result and set new AccessToken
 			if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=refresh_token&refresh_token=".$this->RefreshToken))
 			{
-				$Result = json_decode($Result, true);
+				$Result = \json_decode($Result, true);
 				$this->Access_Token = $Result['access_token'];
 				$this->RefreshToken = $Result['refresh_token'];
 				//Access Tokens are valid for 20mins and must be refreshed after that
@@ -272,7 +272,7 @@ class CREST extends CRESTBase
 		{
 			try{
 				// search result for next part of path
-				$NewURL = $this->search(json_decode($Result, true), $this->APIRoute->bottom());
+				$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
 				//var_dump($NewURL);
 			}
 			catch(CRESTAPIException $e){
@@ -287,7 +287,7 @@ class CREST extends CRESTBase
 			{
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				try{
-					$NewURL = $this->search(json_decode($Result, true), $this->APIRoute->bottom());
+					$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
 					//var_dump($NewURL);
 				}
 				catch(CRESTAPIException $e){
@@ -304,7 +304,7 @@ class CREST extends CRESTBase
 		if(empty($NewURL))
 		{
 			try{
-				$NextPage = $this->search(json_decode($Result, true), new \CRESTHandler\RouteNode("next"));
+				$NextPage = $this->search(\json_decode($Result, true), new \CRESTHandler\RouteNode("next"));
 			}
 			catch(CRESTAPIException $e){
 				echo $e;
@@ -384,7 +384,7 @@ class CREST extends CRESTBase
 			// check that access token is valid and refresh if needed
 			if($this->refresh())
 			{
-				$Host = explode("/", $URL);
+				$Host = \explode("/", $URL);
 				$Options[CURLOPT_HTTPHEADER] = array(
 					"content-type: application/x-www-form-urlencoded",
 					"host: ".$Host[2],
@@ -412,11 +412,11 @@ class CREST extends CRESTBase
 		}
 		// apply options and send request
 		$this->RateLimiter->limit();
-		$curl = curl_init();
-		curl_setopt_array($curl, $Options);
-		$response = curl_exec($curl);
-		$err = curl_error($curl);
-		curl_close($curl);
+		$curl = \curl_init();
+		\curl_setopt_array($curl, $Options);
+		$response = \curl_exec($curl);
+		$err = \curl_error($curl);
+		\curl_close($curl);
 		if($err)
 		{
 			echo "cURL Error #:" . $err;
@@ -443,7 +443,7 @@ class CREST extends CRESTBase
 			// Search for key path
 			case $routenode::TYPE_KEY_PATH:
 				// search down the path and return last result
-				for($i=0;$i<count($routenode->Key);$i++)
+				for($i = 0; $i < \count($routenode->Key); $i++)
 				{
 					$result = $this->ksearch($array, $routenode->Key[$i]);
 				}
@@ -466,7 +466,7 @@ class CREST extends CRESTBase
 	*/
 	protected function kvsearch_r($array, $key, $value, &$results)
 	{
-		if (!is_array($array)) {
+		if (!\is_array($array)) {
 			return;
 		}
 	
@@ -491,7 +491,7 @@ class CREST extends CRESTBase
 	*	Does recursive search on multi-arrays to find key
 	*/
 	protected function ksearch_r($array, $key, &$results){
-		if (!is_array($array)) {
+		if (!\is_array($array)) {
 			return;
 		}
 	

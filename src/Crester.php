@@ -17,14 +17,15 @@ class Crester
 	*/
 	public function __construct()
 	{
-		
+		\session_start();
+		require_once(__DIR__.'/vendor/autoload.php');
 	}
 	
 	public function redirect()
 	{
 		$core_config = $this->getCoreConfig();
-		$state = url_encode(hash("sha256", time()));
-		$_SESSION['sso_state'] = $state
+		$state = \urlencode(\hash("sha256", \time()));
+		$_SESSION['sso_state'] = $state;
 		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes'])."&state=".$state);
 	}
 	
@@ -64,7 +65,8 @@ class Crester
 		if(!isset(self::$shared['xml']))
 		{
 			$cache = $this->cache();
-			return self::$shared['xml'] = new XML(self::$parameters['token'], , $cache);
+			$core_config = $this->getCoreConfig();
+			return self::$shared['xml'] = new XML(self::$parameters['token'], $core_config['user_agent'], $cache);
 		}
 		return self::$shared['xml'];
 	}
@@ -89,7 +91,7 @@ class Crester
 		return self::$shared['limiter'];
 	}
 	
-	protected getCoreConfig()
+	protected function getCoreConfig()
 	{
 		if(!isset(self::$configs['core']))
 		{
@@ -98,7 +100,7 @@ class Crester
 		return self::$shared['core'];
 	}
 	
-	protected getCacheConfig()
+	protected function getCacheConfig()
 	{
 		if(!isset(self::$configs['cache']))
 		{

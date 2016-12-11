@@ -6,6 +6,8 @@
 		"predis/predis": "^1.1"
     },
     "autoload": {
-        "psr-4": {"Crester\\": "src/"}
+        "psr-4": {
+			"Crester\\": "src/"
+		}
     }
 }

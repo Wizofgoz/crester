@@ -9,7 +9,7 @@ return [
 	
 	'enabled'=>false,
 	
-	'default_length'=>24*60*60,	//	1 day
+	'default_length'=>20*60,	//	20 mins
 	
 	'options'=>[
 		/*
@@ -22,10 +22,10 @@ return [
 			'password'=>'',
 		],
 		
-		'redis'=>[
+		/*'redis'=>[
 			'scheme'=>'',
 			'host'=>'127.0.0.1',
 			'port'=>6379,
-		],
+		],*/
 	],
 ];

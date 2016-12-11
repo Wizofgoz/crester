@@ -56,4 +56,4 @@ return [
 		"corporationWalletRead",
 		"characterStatsRead",*/
 	],
-]
+];
