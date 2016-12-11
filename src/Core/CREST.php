@@ -115,7 +115,7 @@ class CREST extends CRESTBase
 	{
 		$response = $this->makeCall('GET');
 		$this->APIRoute = array();
-		return return $response;
+		return $response;
 	}
 	
 	public function post(array $data = [])
