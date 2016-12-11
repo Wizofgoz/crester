@@ -228,7 +228,7 @@ class CREST extends CRESTBase
 	protected function makeCall($Method, array $Data = [])
 	{
 		// Check that the route is a valid queue
-		if($Route->count() > 0)
+		if($this->APIRoute->count() > 0)
 		{
 			$this->UsedRoute = self::CREST_AUTH_ROOT;
 			try{
