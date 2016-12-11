@@ -374,7 +374,7 @@ class CREST extends CRESTBase
 			$encode=base64_encode($this->client_id.":".$this->secret_key);
 			$Host = explode("/", $URL);
 			$Options[CURLOPT_HTTPHEADER] = array(
-				"content-type: application/x-www-form-urlencoded",
+				"content-type: application/json",
 				"host: ".$Host[2],
 				"authorization: Basic ".$encode
 			);
@@ -386,7 +386,7 @@ class CREST extends CRESTBase
 			{
 				$Host = \explode("/", $URL);
 				$Options[CURLOPT_HTTPHEADER] = array(
-					"content-type: application/x-www-form-urlencoded",
+					"content-type: application/json",
 					"host: ".$Host[2],
 					"authorization: Bearer ".$this->Access_Token
 				);
@@ -396,7 +396,7 @@ class CREST extends CRESTBase
 		if($Method == "POST")
 		{
 			$Options[CURLOPT_POST] = true;
-			$Options[CURLOPT_POSTFIELDS] = $Data;
+			$Options[CURLOPT_POSTFIELDS] = json_encode($Data);
 		}
 		elseif($Method == "GET")
 		{
@@ -405,6 +405,7 @@ class CREST extends CRESTBase
 		elseif($Method == "PUT")
 		{
 			$Options[CURLOPT_PUT] = true;
+			$Options[CURLOPT_POSTFIELDS] = json_encode($Data);
 		}
 		elseif($Method == "DELETE")
 		{
