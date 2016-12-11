@@ -136,7 +136,7 @@ class CREST extends CRESTBase
 	public function verifyCode()
 	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=authorization_code&code=".$this->Authorization_Code))
+		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'authorization_code', 'code' => $this->Authorization_Code)))
 		{
 			$Result = \json_decode($Result, true);
 			if(isset($Result['access_token']) && $Result['access_token'] != "")
@@ -202,7 +202,7 @@ class CREST extends CRESTBase
 		if(\time() >= $this->RefreshTime)
 		{
 			// if call did not throw an error, parse result and set new AccessToken
-			if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, "grant_type=refresh_token&refresh_token=".$this->RefreshToken))
+			if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
 			{
 				$Result = \json_decode($Result, true);
 				$this->Access_Token = $Result['access_token'];
@@ -358,7 +358,6 @@ class CREST extends CRESTBase
 	*/
 	protected function callAPI($URL, $Method, $AuthorizationType, array $Data = [])
 	{
-		//echo "<br>URL: '$URL' Method: '$Method' Auth Type: '$AuthorizationType' Data: '$Data'";
 		// set common settings
 		$Options = array(
 			CURLOPT_URL => $URL,
