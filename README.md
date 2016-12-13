@@ -11,13 +11,13 @@ Eve Online's CREST API Library using fluent, english-like syntax
 5.  Make calls on returned object
 
 # Functions
-1.  Crester Class
+##1.  Crester Class<br>
     a.  redirect() - redirects visitor to Eve Online SSO for authentication<br>
     b.  handleCallback($AuthCode, $State = '') - creates a Crest object and handles final authentication with API<br>
     c.  fromRefreshToken($Token) - returns a Crest object authenticated by the given Refresh Token<br>
     d.  crest() - returns the current connection to the CREST API<br>
     e.  xml() - returns the current connection to the XML API
-2.  Crest Class
+##2.  Crest Class<br>
     a.  setAuthCode($AuthCode) - updates the connection's used Authorization Code and verifies it<br>
     b.  getStatus() - returns true/false whether the connection is ready to make calls to the API<br>
     c.  getToken() - returns the current token being used to make requests<br>
