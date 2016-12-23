@@ -2,10 +2,39 @@
 namespace Crester\Core;
 abstract class XMLBase
 {
+	/*
+	*	Base of the API URL
+	*
+	*	@var string
+	*/
 	const API_BASE = 'https://api.eveonline.com/';
 	
+	/*
+	*	File extension to append to endpoint
+	*
+	*	@var string
+	*/
 	const URL_EXTENSION = '.xml.aspx';
+
+	/*
+	*	Constant to designate an API call as using CREST for authorization
+	*
+	*	@var integer
+	*/
+	const AUTH_CREST = 1;
+
+	/*
+	*	Constant to designate an API call as using an API Key for authorization
+	*
+	*	@var string
+	*/
+	const AUTH_TOKEN = 0;
 	
+	/*
+	*	Array of allowed scopes
+	*
+	*	@var array
+	*/
 	const ALLOWED_SCOPES = [
 		'account' => 'account',
 		'api' => 'api',
@@ -16,6 +45,11 @@ abstract class XMLBase
 		'server' => 'server',
 	];
 	
+	/*
+	*	Array of allowed endpoints
+	*
+	*	@var array
+	*/
 	const ALLOWED_ENDPOINTS = [
 		//	account endpoints
 		'account' => [
@@ -128,6 +162,11 @@ abstract class XMLBase
 		],
 	];
 	
+	/*
+	*	Array of allowed access types
+	*
+	*	@var array
+	*/
 	const ALLOWED_ACCESS_TYPES = [
 		'character' => true,
 		'corporation' => true

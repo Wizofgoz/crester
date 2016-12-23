@@ -7,21 +7,46 @@ use \Crester\Core\RateLimiter;
 use \Crester\Core\XML;
 class Crester
 {
+	/*
+	*	URL to redirect to for SSO
+	*
+	*	@var string
+	*/
 	const AUTH_URL = 'https://login.eveonline.com/oauth/authorize/';
 	
+	/*
+	*	Array of component singletons
+	*
+	*	@var array
+	*/
 	protected static $shared = array();
 	
+	/*
+	*	Array of parameters to be shared between components
+	*
+	*	@var array
+	*/
 	protected static $parameters = array();
 	
-	protected static $configs = array();
 	/*
-	*	
+	*	Array of configs loaded
+	*
+	*	@var array
 	*/
-	public function __construct()
-	{
-		
-	}
+	protected static $configs = array();
+
+	/*
+	*	Initialize the Object
+	*
+	*	@return void	
+	*/
+	public function __construct(){}
 	
+	/*
+	*	Redirect to the Eve Online SSO to obtain authorization
+	*
+	*	@return void
+	*/
 	public function redirect()
 	{
 		$core_config = $this->getCoreConfig();
@@ -33,8 +58,19 @@ class Crester
 			$state_str = "&state=$state";
 		}
 		header("Location: ".self::AUTH_URL."?response_type=code&redirect_uri=".$core_config['callback_url']."&client_id=".$core_config['client_id']."&scope=".implode(" ", $core_config['scopes']).$state_str);
+		exit;
 	}
 	
+	/*
+	*	Handle the callback from the SSO and initialize the CREST connection
+	*
+	*	@param string $AuthCode
+	*	@param string $State
+	*
+	*	@return \Crester\Core\CREST
+	*
+	*	@throws \Exception
+	*/
 	public function handleCallback($AuthCode, $State = '')
 	{
 		$core_config = $this->getCoreConfig();
@@ -45,54 +81,83 @@ class Crester
 			if($_SESSION['sso_state'] !== $State)
 				throw new \Exception('States do not match');
 		}
-		self::$parameters['auth_code'] = $AuthCode;
-		$crest = $this->crest();
-		self::$parameters['token'] = $crest->getToken();
-		self::$parameters['expiration'] = $crest->getExpiration();
-		self::$parameters['refresh'] = $crest->getRefreshToken();
-		return $crest;
+		return $this->crest(false, $AuthCode);
 	}
 	
+	/*
+	*	Refresh the CREST connection with a previous Refresh Token
+	*
+	*	@param string $refresh_token
+	*
+	*	@return \Crester\Core\CREST
+	*/
 	public function fromRefreshToken($refresh_token)
 	{
-		self::$parameters['refresh'] = $refresh_token;
-		return $this->crest(true);
+		return $this->crest(true, $refresh_token);
 	}
 	
-	public function crest($refresh = false)
+	/*
+	*	Get an instance of the CREST connection
+	*
+	*	@param boolean $refresh
+	*	@param string $token
+	*
+	*	@return \Crester\Core\CREST
+	*/
+	public function crest($refresh = false, $token = null)
 	{
 		if(!isset(self::$shared['crest']))
 		{
 			$core_config = $this->getCoreConfig();
 			$limiter = $this->limiter();
 			$cache = $this->cache();
-			$code = ($refresh === false ? self::$parameters['auth_code'] : self::$parameters['refresh']);
-			return self::$shared['crest'] = new CREST($core_config, $code, $limiter, $cache, $refresh);
+			return self::$shared['crest'] = new CREST($core_config, $token, $limiter, $cache, $refresh);
 		}
 		return self::$shared['crest'];
 	}
 	
+	/*
+	*	Get an instance of the XML connection
+	*
+	*	@return \Crester\Core\XML
+	*/
 	public function xml()
 	{
 		if(!isset(self::$shared['xml']))
 		{
 			$cache = $this->cache();
 			$core_config = $this->getCoreConfig();
-			return self::$shared['xml'] = new XML(self::$parameters['token'], $core_config['user_agent'], $cache);
+			$xml = new XML($core_config, $cache);
+			if($core_config['xmlAPI']['CrestAuth'])
+			{
+				$this->crest()->attach($xml);
+				$this->crest()->notify();
+			}
+			return self::$shared['xml'] = $xml;
 		}
 		return self::$shared['xml'];
 	}
-	
+
+	/*
+	*	Get an instance of the Cache handler
+	*
+	*	@return \Crester\Cache\Cache
+	*/
 	protected function cache()
 	{
 		if(!isset(self::$shared['cache']))
 		{
-			$core_config = $this->getCacheConfig();
-			return self::$shared['cache'] = new Cache($core_config['enabled'], $this->getCacheDriver(), $core_config['default_length']);
+			$cache_config = $this->getCacheConfig();
+			return self::$shared['cache'] = new Cache($cache_config['enabled'], $this->getCacheDriver(), $cache_config['default_length']);
 		}
 		return self::$shared['cache'];
 	}
 	
+	/*
+	*	Get an instance of the Rate Limiter
+	*
+	*	@return \Crester\Core\RateLimiter
+	*/
 	protected function limiter()
 	{
 		if(!isset(self::$shared['limiter']))
@@ -103,6 +168,11 @@ class Crester
 		return self::$shared['limiter'];
 	}
 	
+	/*
+	*	Get an instance of the core config file
+	*
+	*	@return array
+	*/
 	protected function getCoreConfig()
 	{
 		if(!isset(self::$configs['core']))
@@ -112,6 +182,11 @@ class Crester
 		return self::$shared['core'];
 	}
 	
+	/*
+	*	Get an instance of the cache config file
+	*
+	*	@return array
+	*/
 	protected function getCacheConfig()
 	{
 		if(!isset(self::$configs['cache']))
@@ -121,6 +196,13 @@ class Crester
 		return self::$shared['cache'];
 	}
 
+	/*
+	*	Get an instance of the cache driver
+	*
+	*	@return \Crester\Cache\CacheInterface
+	*
+	*	@throws \Exception
+	*/
 	protected function getCacheDriver()
 	{
 		$cache_config = $this->getCacheConfig();

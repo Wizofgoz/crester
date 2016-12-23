@@ -1,71 +1,212 @@
 <?php
 namespace Crester\Core;
 use \Crester\Exceptions;
-class XMLHandler extends XMLBase
+use \Crester\Cache\Cache;
+class XMLHandler extends XMLBase implements \SplObserver
 {
-	
-	protected $Access_Token;
-	
+	/*
+	*	User Agent Header to send to the Eve API
+	*
+	*	@var string
+	*/
 	protected $User_Agent = '';
 	
+	/*
+	*	Cache Instance
+	*
+	*	@var \Crester\Cache\Cache
+	*/
 	protected $Cache;
 	
+	/*
+	*	Scope of the current API call
+	*
+	*	@var string
+	*/
 	protected $Scope;
 	
+	/*
+	*	Endpoint of the current API call
+	*
+	*	@var string
+	*/
 	protected $EndPoint;
-		
+	
+	/*
+	*	Arguments to pass with the current API call
+	*
+	*	@var string[]
+	*/
 	protected $Args = [];
+
+	/*
+	*	Access Token to use with a CREST Authorized API call
+	*
+	*	@var string
+	*/
+	protected $Access_Token;
 	
+	/*
+	*	Access Type to use with a CREST Authorized API call
+	*
+	*	@var string
+	*/
 	protected $AccessType = 'character'; //	defaults to character
+
+	/*
+	*	Authorization sheme to use for the current API call
+	*
+	*	@var integer
+	*/
+	protected $AuthScheme;
+
+	/*
+	*	Key ID to use for with a API Token Authorized API call
+	*
+	*	@var string
+	*/
+	protected $KeyID;
+
+	/*
+	*	Verification Code to use with an API Token Authorized API call
+	*
+	*	@var string
+	*/
+	protected $VCode;
 	
-	public function __construct($token, $user_agent, CacheInterface $Cache)
+	/*
+	*	Initialize the XML connection
+	*
+	*	@param array $config
+	*	@param \Crester\Cache\Cache $Cache
+	*
+	*	@return void
+	*/
+	public function __construct(array $config, Cache $Cache)
 	{
-		$this->Access_Token = $token;
-		$this->User_Agent = $user_agent;
+		$this->User_Agent = $config['user_agent'];
+		$this->AuthScheme = $config['xmlAPI']['crestAuth'] ? self::AUTH_CREST : self::AUTH_TOKEN;
 		$this->Cache = $Cache;
 	}
+
+	/*
+	*	Update the Access Token when the CREST connection refreshes
+	*
+	*	@param \SplSubject $subject
+	*
+	*	@return void
+	*/
+	public function update(\SplSubject $subject)
+	{
+		$this->setToken($subject->getToken);
+	}
 	
-	public function setToken($Token)
+	/*
+	*	Set the Access Token
+	*
+	*	@param string $Token
+	*
+	*	@return void
+	*/
+	protected function setToken($Token)
 	{
 		$this->Access_Token = $Token;
 	}
+
+	/*
+	*	Set the call to use API Key Authorization and set the key's values
+	*
+	*	@param array $Key
+	*
+	*	@return void
+	*/
+	protected function setKey(array $Key)
+	{
+		$this->KeyID = $Key['KeyID'];
+		$this->VCode = $Key['VCode'];
+		$this->AuthScheme = self::AUTH_TOKEN;
+	}
 	
+	/*
+	*	Set the scope of the current API call
+	*
+	*	@param string $Scope
+	*
+	*	@return \Crester\XML\XML
+	*
+	*	@throws \Crester\Exceptions\XMLAPIException
+	*/
 	public function scope($Scope)
 	{
-		if(isset(self::ALLOWED_SCOPES[$Scope]))
+		if(!isset(self::ALLOWED_SCOPES[$Scope]))
 		{
-			$this->Scope = self::ALLOWED_SCOPES[$Scope];
-			return $this;
+			throw new XMLAPIException('Invalid Scope given');
 		}
-		throw new XMLAPIException('Invalid Scope given');
+		$this->Scope = self::ALLOWED_SCOPES[$Scope];
+		return $this;
 	}
 	
+	/*
+	*	Set the endpoint of the current API call
+	*
+	*	@param string $EndPoint
+	*
+	*	@return \Crester\XML\XML
+	*
+	*	@throws \Crester\Exceptions\XMLAPIException
+	*/
 	public function endPoint($EndPoint)
 	{
-		if(isset(self::ALLOWED_ENDPOINTS[$this->Scope][$EndPoint]))
+		if(!isset(self::ALLOWED_ENDPOINTS[$this->Scope][$EndPoint]))
 		{
-			$this->EndPoint = $EndPoint;
-			return $this;
+			throw new XMLAPIException('Invalid End Point given');
 		}
-		throw new XMLAPIException('Invalid End Point given');
+		$this->EndPoint = $EndPoint;
+		return $this;
 	}
 	
+	/*
+	*	Set the access type of the current API call
+	*
+	*	@param string $AccessType
+	*
+	*	@return \Crester\XML\XML
+	*
+	*	@throws \Crester\Exceptions\XMLAPIException
+	*/
 	public function accessType($AccessType)
 	{
-		if(isset(self::ALLOWED_ACCESS_TYPES[$AccessType]))
+		if(!isset(self::ALLOWED_ACCESS_TYPES[$AccessType]))
 		{
-			$this->AccessType = $AccessType;
-			return $this;
+			throw new XMLAPIException('Invalid Access Type given');
 		}
-		throw new XMLAPIException('Invalid Access Type given');
+		$this->AccessType = $AccessType;
+		return $this;
 	}
 	
-	public function get(array $Args = [])
+	/*
+	*	Make call to the API with current values and reset the object for a new call
+	*
+	*	@param string[] $Args
+	*	@param array $Key
+	*
+	*	@return array
+	*/
+	public function get(array $Args = [], array $Key = null)
 	{
+		if($Key !== null)
+			$this->setKey($Key);
 		$this->Args = $Args;
-		return $this->Check();
+		$response = $this->Check();
+		$this->clear();
+		return $response;
 	}
 	
+	/*
+	*	Clear the object for a new call
+	*
+	*	@return \Crester\XML\XML
+	*/
 	public function clear()
 	{
 		$this->Scope = NULL;
@@ -75,6 +216,13 @@ class XMLHandler extends XMLBase
 		return $this;
 	}
 	
+	/*
+	*	Parse XML into array structure
+	*
+	*	@param string $xml
+	*
+	*	@return array
+	*/
 	protected function XMLToArray($xml)
 	{
 		$parser = \xml_parser_create('ISO-8859-1'); // For Latin-1 charset
@@ -105,13 +253,21 @@ class XMLHandler extends XMLBase
 		return $return;
 	}
 
+	/*
+	*	Recursively updates $array with stack's sub-items
+	*
+	*	@param array $array
+	*	@param array $stack
+	*	@param string $value
+	*
+	*	@return void
+	*/
 	protected function setArrayValue(&$array, $stack, $value) 
 	{
 		if ($stack) 
 		{
 			$key = array_shift($stack);
 			$this->setArrayValue($array[$key], $stack, $value);
-			return $array;
 		} 
 		else 
 		{
@@ -120,7 +276,9 @@ class XMLHandler extends XMLBase
 	}
 	
 	/*
-	*	Returns XML object on success, false otherwise
+	*	Checks cache and if miss, calls API
+	*
+	*	@return array
 	*/
 	protected function Check(){
 		$result = $this->Cache->xmlCheck($this->Access_Token, $this->AccessType, $this->Scope, $this->EndPoint, $this->Args);
@@ -131,10 +289,31 @@ class XMLHandler extends XMLBase
 		}
 		return $this->XMLToArray($result);
 	}
+
 	/*
-	*	Returns XML object on success, false otherwise
+	*	Builds Authorization parameters for API call
+	*
+	*	@return string
 	*/
-	protected function CallAPI()
+	protected function GetAuthParameters()
+	{
+		switch($this->AuthScheme)
+		{
+			case self::AUTH_CREST:
+				return "?accessToken=".$this->AccessCode."&accessType=$this->AccessType";
+				break;
+			case self::AUTH_TOKEN:
+				return "?keyID=$this->KeyID&vCode=$this->VCode";
+				break;
+		}
+	}
+
+	/*
+	*	Builds full URL to call API with
+	*
+	*	@return string
+	*/
+	protected function BuildURL()
 	{
 		$ArgStr = "";
 		if(!empty($this->Args))
@@ -144,9 +323,21 @@ class XMLHandler extends XMLBase
 				$ArgStr .= "&".$name."=".$value;
 			}
 		}
+		return self::API_BASE.$this->Scope."/".$this->EndPoint.self::URL_EXTENSION.$this->GetAuthParameters().$this->ArgStr
+	}
+
+	/*
+	*	Calls API with current settings
+	*
+	*	@return string
+	*
+	*	@throws \Crester\Exceptions\XMLAPIException
+	*/
+	protected function CallAPI()
+	{
 		$curl = curl_init();
 		curl_setopt_array($curl, array(
-			CURLOPT_URL => self::API_BASE.$this->Scope."/".$this->EndPoint.self::URL_EXTENSION."?accessToken=".$this->AccessCode."&accessType=$this->AccessType".$this->ArgStr,
+			CURLOPT_URL => $this->BuildURL(),
 			CURLOPT_RETURNTRANSFER => true,
 			CURLOPT_ENCODING => "",
 			CURLOPT_HEADER, 0,

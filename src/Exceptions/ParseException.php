@@ -1,6 +1,6 @@
 <?php
 namespace Crester\Exceptions;
-class CRESTAPIException extends \Exception
+class ParseException extends \Exception
 {
 	public function __construct($message, $code = 0)
 	{

@@ -1,8 +1,9 @@
 <?php
 namespace Crester\Core;
 use \Crester\Core\CRESTBase;
+use \Crester\Cache\Cache;
 use \Crester\Exceptions\CRESTAPIException;
-class CREST extends CRESTBase
+class CREST extends CRESTBase implements \SplSubject
 {
 	/*
 	*	Code retrieved from SSO
@@ -94,6 +95,13 @@ class CREST extends CRESTBase
 	*	@var boolean
 	*/
 	protected $authorize;
+
+	/*
+	*	List of observers attached
+	*
+	*	@var \SplObjectStorage
+	*/
+	protected $observers;
 	
 	/*
 	*	Constructor
@@ -106,7 +114,7 @@ class CREST extends CRESTBase
 	*
 	*	@return void
 	*/
-	public function __construct(array $config, $code, RateLimiter $limiter, \Crester\Cache\Cache $cache, $refresh = false)
+	public function __construct(array $config, $code, RateLimiter $limiter, Cache $cache, $refresh = false)
 	{
 		$this->client_id = $config['client_id'];
 		$this->secret_key = $config['secret_key'];
@@ -114,6 +122,7 @@ class CREST extends CRESTBase
 		$this->authorize = (isset($config['authorize']) ? $config['authorize'] : false);
 		$this->RateLimiter = $limiter;
 		$this->Cache = $cache;
+		$this->observers = new \SplObjectStorage();
 		// if connection requires authorization
 		if($this->authorize)
 		{
@@ -130,6 +139,35 @@ class CREST extends CRESTBase
 			}
 		}
 	}
+
+	/*
+	*	Attach an observer to the object
+	*
+	*	@param \SplObserver $observer
+	*/
+	public function attach(\SplObserver $observer)
+    {
+        $this->observers->attach($observer);
+    }
+
+    /*
+    *	Detach an observer from the object
+    */
+    public function detach(\SplObserver $observer)
+    {
+        $this->observers->detach($observer);
+    }
+
+    /*
+    *	Notify observers that this object has updated
+    */
+    public function notify()
+    {
+        /** @var \SplObserver $observer */
+        foreach ($this->observers as $observer) {
+            $observer->update($this);
+        }
+    }
 	
 	/*
 	*	Set the current Authorization Code for the connection
@@ -143,6 +181,7 @@ class CREST extends CRESTBase
 		$this->Authorization_Code = $Code;
 		try{
 			$this->verifyCode();
+			$this->notify();
 		}catch(CRESTAPIException $e){
 			echo $e;
 			exit;
@@ -282,33 +321,22 @@ class CREST extends CRESTBase
     /*
 	*	Verifies Authorization code and sets Access Token
 	*
-	*	@throws \Crester\Exceptions\CRESTAPIException
+	*	@throws \Crester\Exceptions\APIAuthException
 	*	
 	*	@return void
 	*/
 	public function verifyCode()
 	{
-		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'authorization_code', 'code' => $this->Authorization_Code)))
-		{
+		try{
+			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'authorization_code', 'code' => $this->Authorization_Code)))
 			$Result = \json_decode($Result, true);
-			if(isset($Result['access_token']) && $Result['access_token'] != "")
-			{
-				$this->Access_Token = $Result['access_token'];
-				$this->Verified_Code = true;
-				$this->RefreshToken = $Result['refresh_token'];
-				//Access Tokens are valid for 20mins and must be refreshed after that
-				$this->RefreshTime = \time()+(60*20);
-			}
-			else
-			{
-				throw new CRESTAPIException('Error: invalid API response. '. implode(', ', $Result));
-			}
-		}
-		// else, return false
-		else
-		{
-			throw new CRESTAPIException('Error: cURL returned an error');
+			$this->Access_Token = $Result['access_token'];
+			$this->Verified_Code = true;
+			$this->RefreshToken = $Result['refresh_token'];
+			//Access Tokens are valid for 20mins and must be refreshed after that
+			$this->RefreshTime = \time()+(60*20);
+		}catch(APIResponseException $e){
+			throw new APIAuthException($e->message);
 		}
 	}
 
@@ -375,21 +403,26 @@ class CREST extends CRESTBase
 		}
 	}
 
+	/*
+	*	Calls API to refresh the connection
+	*
+	*	@return boolean
+	*
+	*	@throws Crester\Exceptions\APIAuthException
+	*/
 	protected function refresh()
 	{
-		// if call did not throw an error, parse result and set new AccessToken
-		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
-		{
+		try{
+			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
 			$Result = \json_decode($Result, true);
 			$this->Access_Token = $Result['access_token'];
 			$this->RefreshToken = $Result['refresh_token'];
 			//Access Tokens are valid for 20mins and must be refreshed after that
 			$this->RefreshTime = time()+(60*20);
+			$this->notify();
 			return true;
-		}
-		else
-		{
-			return false;
+		}catch(APIResponseException $e){
+			throw new APIAuthException($e->message);
 		}
 	}
 
@@ -407,13 +440,7 @@ class CREST extends CRESTBase
 		if($this->APIRoute->count() > 0)
 		{
 			$this->UsedRoute = self::CREST_AUTH_ROOT;
-			try{
-				$LeafURL = $this->recursiveCall(self::CREST_AUTH_ROOT);
-			}
-			catch(CRESTAPIException $e){
-				echo $e;
-				exit;
-			}
+			$LeafURL = $this->recursiveCall(self::CREST_AUTH_ROOT);
 			// check cache
 			if($Result = $this->Cache->crestCheck($LeafURL, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value))
 			{
@@ -422,15 +449,9 @@ class CREST extends CRESTBase
 			// if nothing in cache, call API
 			else
 			{
-				if($Result = $this->callAPI($LeafURL, $Method, self::AUTHORIZATION_BEARER, $Data))
-				{
-					$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
-					return $Result;
-				}
-				else
-				{
-					return false;
-				}
+				$Result = $this->callAPI($LeafURL, $Method, self::AUTHORIZATION_BEARER, $Data))
+				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
+				return $Result;
 			}
 		}
 		else
@@ -445,69 +466,37 @@ class CREST extends CRESTBase
 	*	@param string $URL
 	*
 	*	@return string|NULL
+	*
+	*	@throws \Crester\Exceptions\ResponseSearchException
 	*/
 	protected function recursiveCall($URL)
 	{
 		// check cache
 		if($Result = $this->Cache->crestCheck($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value))
 		{
-			try{
-				// search result for next part of path
-				$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
-			}
-			catch(CRESTAPIException $e){
-				echo $e;
-				exit;
-			}
+			// search result for next part of path
+			$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
 		}
 		// if nothing in cache, call API
 		else
 		{
-			if($Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, array()))
-			{
-				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
-				try{
-					$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
-				}
-				catch(CRESTAPIException $e){
-					echo $e;
-					exit;
-				}
-			}
-			else
-			{
-				return;
-			}
+			$Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, array()))
+			$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
+			$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
 		}
 		// if search returned no results, search for pagination
 		if(empty($NewURL))
 		{
-			try{
-				$NextPage = $this->search(\json_decode($Result, true), new RouteNode("next"));
-			}
-			catch(CRESTAPIException $e){
-				echo $e;
-				exit;
-			}
+			$NextPage = $this->search(\json_decode($Result, true), new RouteNode("next"));
 			// if no pagination found, throw exception
 			if(empty($NextPage))
 			{
-				throw new CRESTAPIException($this->APIRoute->bottom()->Key." and pagination not found in API response", 100);
+				throw new ResponseSearchException($this->APIRoute->bottom()->Key." and pagination not found in API response", 100);
 			}
 			// else, get next page
 			else
 			{
-				try{
-					return $this->recursiveCall($NextPage[0]['href']);
-				}
-				catch(CRESTAPIException $e){
-					echo $e;
-					exit;
-				}
-				catch(\Exception $e){
-					echo $e;
-					exit;
-				}
+				return $this->recursiveCall($NextPage[0]['href']);
 			}
 		}
 		else
@@ -522,13 +511,7 @@ class CREST extends CRESTBase
 			{
 				// remove last part of route
 				$this->UsedRoute .= "|".$this->APIRoute->dequeue()->Key."|";
-				try{
-					return $this->recursiveCall($NewURL[0]['href']);
-				}
-				catch(CRESTAPIException $e){
-					echo $e;
-					exit;
-				}
+				return $this->recursiveCall($NewURL[0]['href']);
 			}
 		}
 	}
@@ -542,6 +525,8 @@ class CREST extends CRESTBase
 	*	@param array $Data
 	*
 	*	@return string|false
+	*
+	*	@throws \Crester\Exceptions\APIResponseException
 	*/
 	protected function callAPI($URL, $Method, $AuthorizationType, array $Data = [])
 	{
@@ -606,13 +591,12 @@ class CREST extends CRESTBase
 		\curl_close($curl);
 		if($err)
 		{
-			echo "cURL Error #:" . $err;
-			return false;
+			throw new APIResponseException("cURL Error #:" . $err);
 		}
-		else
-		{
-			return $response;
-		}
+		$arr = json_decode($response, true);
+		if(isset($arr['error']))
+			throw new APIResponseException($arr['error'].'->'.$arr['error_description']);
+		return $response;
 	}
 
 	/*
@@ -622,6 +606,8 @@ class CREST extends CRESTBase
 	*	@param \Crester\Core\RouteNode $routenode
 	*	
 	*	@return array
+	*
+	*	@throws \Crester\Exceptions\ResponseSearchException
 	*/
 	protected function search(array $array, $routenode)
 	{
@@ -642,7 +628,7 @@ class CREST extends CRESTBase
 				}
 				return $result;
 			default:
-				throw new CRESTAPIException("Unknown RouteNode type: ".$routenode->Type, 101);
+				throw new ResponseSearchException("Unknown RouteNode type: ".$routenode->Type, 101);
 		}
 	}
 	
