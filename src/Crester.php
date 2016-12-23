@@ -66,7 +66,8 @@ class Crester
 			$core_config = $this->getCoreConfig();
 			$limiter = $this->limiter();
 			$cache = $this->cache();
-			return self::$shared['crest'] = new CREST($core_config['client_id'], $core_config['secret_key'], ($refresh === false ? self::$parameters['auth_code'] : self::$parameters['refresh']), $limiter, $cache, $refresh);
+			$code = ($refresh === false ? self::$parameters['auth_code'] : self::$parameters['refresh']);
+			return self::$shared['crest'] = new CREST($core_config, $code, $limiter, $cache, $refresh);
 		}
 		return self::$shared['crest'];
 	}

@@ -1,71 +1,143 @@
 <?php
 namespace Crester\Core;
-use \Crester\Core\CRESTBase as CRESTBase;
+use \Crester\Core\CRESTBase;
 use \Crester\Exceptions\CRESTAPIException;
 class CREST extends CRESTBase
 {
 	/*
 	*	Code retrieved from SSO
+	*
+	*	@var string
 	*/
 	protected $Authorization_Code;
+
 	/*
 	*	Token used to authenticate CREST calls
+	*
+	*	@var string
 	*/
 	protected $Access_Token;
+
 	/*
 	*	Whether the authorization code has been verified
+	*
+	*	@var boolean
 	*/
 	protected $Verified_Code = false;
+
 	/*
 	*	Route for API calls to follow
+	*
+	*	@var \SPLQueue
 	*/
 	protected $APIRoute;
+
 	/*
 	*	Route used so far in call stack
+	*
+	*	@var string
 	*/
 	protected $UsedRoute;
+
 	/*
 	*	Rate Limiter class makes sure API calls don't exceed limits
+	*
+	*	@var \Crester\Core\RateLimiter
 	*/
 	protected $RateLimiter;
+
 	/*
+	*	Cache controller
 	*
+	*	@var \Crester\Cache\Cache
 	*/
 	protected $Cache;
+
 	/*
 	*	Token used to get a fresh access token
+	*
+	*	@var string
 	*/
 	protected $RefreshToken;
+
 	/*
 	*	When the current access token needs to be refreshed
+	*
+	*	@var integer
 	*/
 	protected $RefreshTime;
+
 	/*
 	*	ClientID for Eve Server Authentication
+	*
+	*	@var string
 	*/
 	protected $client_id;
+
 	/*
 	*	SecretKey for Eve Server Authentication
+	*
+	*	@var string
 	*/
 	protected $secret_key;
+
+	/*
+	*	User Agent to use when communicating with API
+	*
+	*	@var string
+	*/
+	protected $user_agent;
+
+	/*
+	*	Whether the connection requires authorization
+	*
+	*	@var boolean
+	*/
+	protected $authorize;
 	
-	public function __construct($client_id, $secret_key, $code, RateLimiter $limiter, \Crester\Cache\Cache $cache, $refresh = false)
+	/*
+	*	Constructor
+	*
+	*	@param array $config
+	*	@param null|string
+	*	@param \Crester\Core\RateLimiter $limiter
+	*	@param \Crester\Cache\Cache $cache
+	*	@param boolean $refresh
+	*
+	*	@return void
+	*/
+	public function __construct(array $config, $code, RateLimiter $limiter, \Crester\Cache\Cache $cache, $refresh = false)
 	{
-		$this->client_id = $client_id;
-		$this->secret_key = $secret_key;
+		$this->client_id = $config['client_id'];
+		$this->secret_key = $config['secret_key'];
+		$this->user_agent = (isset($config['user_agent']) ? $config['user_agent'] : 'CRESTer');
+		$this->authorize = (isset($config['authorize']) ? $config['authorize'] : false);
 		$this->RateLimiter = $limiter;
 		$this->Cache = $cache;
-		if($refresh !== true)
+		// if connection requires authorization
+		if($this->authorize)
 		{
-			$this->setAuthCode($code);
-		}
-		else
-		{
-			$this->RefreshTime = \time() - 3600;	//	time in the past so refresh goes through
-			$this->refresh();
+			// if connection is not to be built from a refresh token (new authorization)
+			if($refresh !== true)
+			{
+				$this->setAuthCode($code);
+			}
+			// if connection is to be refreshed from previous session
+			else
+			{
+				$this->RefreshTime = \time() - 3600;	//	time in the past so refresh goes through
+				$this->refresh();
+			}
 		}
 	}
 	
+	/*
+	*	Set the current Authorization Code for the connection
+	*
+	*	@param string $Code
+	*
+	*	@return void
+	*/
 	public function setAuthCode($Code)
 	{
 		$this->Authorization_Code = $Code;
@@ -76,31 +148,55 @@ class CREST extends CRESTBase
 			exit;
 		}
 	}
+	
 	/*
 	*	Returns whether the handler has a valid session running
+	*
+	*	@return boolean
 	*/
 	public function getStatus()
 	{
 		return $this->Verified_Code;
 	}
+	
 	/*
 	*	Returns current Bearer Token
+	*
+	*	@return string
 	*/
 	public function getToken()
 	{
 		return $this->Access_Token;
 	}
 	
+	/*
+	*	Returns current Refresh Token
+	*
+	*	@return string
+	*/
 	public function getRefreshToken()
 	{
 		return $this->RefreshToken;
 	}
 	
+	/*
+	*	Returns timestamp of when the current API session will expire
+	*
+	*	@return string
+	*/
 	public function getExpiration()
 	{
 		return $this->RefreshTime;
 	}
 	
+	/*
+	*	Adds a node onto the current route and returns $this for fluent interface
+	*
+	*	@param string $key
+	*	@param string|NULL $value
+	*	
+	*	@return \Crester\Core\CREST
+	*/
 	public function node($key, $value = NULL)
 	{
 		if(!isset($this->APIRoute))
@@ -111,36 +207,84 @@ class CREST extends CRESTBase
 		return $this;
 	}
 	
-	public function get()
+	/*
+	*	Gets API response from current route using GET method
+	*
+	*	@return array
+	*/
+	public function get($authorize = null)
 	{
-		$response = $this->makeCall('GET');
+		$response = $this->makeCall('GET', $this->determineAuth($authorize));
 		$this->APIRoute = new \SPLQueue();
 		return json_decode($response, true);
 	}
 	
-	public function post(array $data = [])
+	/*
+	*	Makes a POST call to the current route with the given data
+	*
+	*	@param array $data
+	*
+	*	@return array
+	*/
+	public function post(array $data = [], $authorize = null)
 	{
-		$response = $this->makeCall('POST', $data);
+		$response = $this->makeCall('POST', $this->determineAuth($authorize), $data);
 		$this->APIRoute = new \SPLQueue();
 		return json_decode($response, true);
 	}
 	
-	public function put(array $data = [])
+	/*
+	*	Makes a PUT call to the current route with the given data
+	*
+	*	@param array $data
+	*
+	*	@return array
+	*/
+	public function put(array $data = [], $authorize = null)
 	{
-		$response = $this->makeCall('PUT', $data);
+		$response = $this->makeCall('PUT', $this->determineAuth($authorize), $data);
 		$this->APIRoute = new \SPLQueue();
 		return json_decode($response, true);
 	}
 	
-	public function delete()
+	/*
+	*	Makes a DELETE call to the current route
+	*
+	*	@return array
+	*/
+	public function delete($authorize = null)
 	{
-		$response = $this->makeCall('DELETE');
+		$response = $this->makeCall('DELETE', $this->determineAuth($authorize));
 		$this->APIRoute = new \SPLQueue();
 		return json_decode($response, true);
+	}
+
+	/*
+	*	Determines which Authorization scheme to use according to settings and call parameters
+	*
+	*	@param null|boolean $authorize
+	*
+	*	@return integer
+	*/
+	protected function determineAuth($authorize)
+	{
+		// if global is true, only reason to switch is if $authorize is false
+		if($this->authorize === true && $authorize === false)
+			return self::AUTHORIZATION_NONE;
+		
+		// if global is false and $authorize is not true, switch
+		if($this->authorize === false && $authorize !== true)
+			return self::AUTHORIZATION_NONE;
+
+		return self::AUTHORIZATION_BEARER;;
 	}
 	
     /*
 	*	Verifies Authorization code and sets Access Token
+	*
+	*	@throws \Crester\Exceptions\CRESTAPIException
+	*	
+	*	@return void
 	*/
 	public function verifyCode()
 	{
@@ -167,8 +311,11 @@ class CREST extends CRESTBase
 			throw new CRESTAPIException('Error: cURL returned an error');
 		}
 	}
+
 	/*
 	*	Specialized call to get character info of logged in user
+	*
+	*	@return array|false
 	*/
 	public function getCharacterInfo()
 	{
@@ -186,11 +333,16 @@ class CREST extends CRESTBase
 	
 	/*
 	*	Make a custom call to given URL with given Method (GET, POST, PUT, DELETE)
+	*
+	*	@param string $URL
+	*	@param string $Method
+	*
+	*	@return array|false
 	*/
-	public function customCall($URL, $Method)
+	public function customCall($URL, $Method, $authorize = null)
 	{
 		// if api call doesn't return an error, parse it and set values
-		if($Result = $this->callAPI($URL, $Method, self::AUTHORIZATION_BEARER, array()))
+		if($Result = $this->callAPI($URL, $Method, $this->determineAuth($authorize), array()))
 		{
 			return \json_decode($Result, true);
 		}
@@ -203,26 +355,18 @@ class CREST extends CRESTBase
 	
 	/*
 	*	Uses Refresh Token to get fresh Access Token
+	*
+	*	@return boolean
 	*/
-	protected function refresh()
+	protected function checkRefresh()
 	{
+		// if connection doesn't require authorization, skip checking refresh
+		if(!$this->authorize)
+			return true;
 		// check if access token is valid
 		if(\time() >= $this->RefreshTime)
 		{
-			// if call did not throw an error, parse result and set new AccessToken
-			if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
-			{
-				$Result = \json_decode($Result, true);
-				$this->Access_Token = $Result['access_token'];
-				$this->RefreshToken = $Result['refresh_token'];
-				//Access Tokens are valid for 20mins and must be refreshed after that
-				$this->RefreshTime = time()+(60*20);
-				return true;
-			}
-			else
-			{
-				return false;
-			}
+			return $this->refresh();
 		}
 		// if access token is valid, return true
 		else
@@ -230,10 +374,34 @@ class CREST extends CRESTBase
 			return true;
 		}
 	}
+
+	protected function refresh()
+	{
+		// if call did not throw an error, parse result and set new AccessToken
+		if($Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
+		{
+			$Result = \json_decode($Result, true);
+			$this->Access_Token = $Result['access_token'];
+			$this->RefreshToken = $Result['refresh_token'];
+			//Access Tokens are valid for 20mins and must be refreshed after that
+			$this->RefreshTime = time()+(60*20);
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
+
 	/*
 	*	Takes in path (SplQueue) and start recursive calls
+	*
+	*	@param string $Method
+	*	@param array $Data
+	*
+	*	@return string|false
 	*/
-	protected function makeCall($Method, array $Data = [])
+	protected function makeCall($Method, $Authorize, array $Data = [])
 	{
 		// Check that the route is a valid queue
 		if($this->APIRoute->count() > 0)
@@ -270,8 +438,13 @@ class CREST extends CRESTBase
 			return false;
 		}
 	}
+
 	/*
 	*	Runs recursive calls down the route
+	*
+	*	@param string $URL
+	*
+	*	@return string|NULL
 	*/
 	protected function recursiveCall($URL)
 	{
@@ -281,7 +454,6 @@ class CREST extends CRESTBase
 			try{
 				// search result for next part of path
 				$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
-				//var_dump($NewURL);
 			}
 			catch(CRESTAPIException $e){
 				echo $e;
@@ -296,7 +468,6 @@ class CREST extends CRESTBase
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				try{
 					$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
-					//var_dump($NewURL);
 				}
 				catch(CRESTAPIException $e){
 					echo $e;
@@ -361,8 +532,16 @@ class CREST extends CRESTBase
 			}
 		}
 	}
+
 	/*
 	*	Makes a call to the CREST API
+	*
+	*	@param string $URL
+	*	@param string $Method
+	*	@param integer $AuthorizationType
+	*	@param array $Data
+	*
+	*	@return string|false
 	*/
 	protected function callAPI($URL, $Method, $AuthorizationType, array $Data = [])
 	{
@@ -376,28 +555,28 @@ class CREST extends CRESTBase
 			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
 		);
 		// differentiate between authentication methods
-		if($AuthorizationType === self::AUTHORIZATION_BASIC)
+		switch($AuthorizationType)
 		{
-			$encode=base64_encode($this->client_id.":".$this->secret_key);
-			$Host = explode("/", $URL);
-			$Options[CURLOPT_HTTPHEADER] = array(
-				"content-type: application/json",
-				"host: ".$Host[2],
-				"authorization: Basic ".$encode
-			);
-		}
-		else
-		{
-			// check that access token is valid and refresh if needed
-			if($this->refresh())
-			{
-				$Host = \explode("/", $URL);
+			case self::AUTHORIZATION_BASIC:
+				$encode=base64_encode($this->client_id.":".$this->secret_key);
+				$Host = explode("/", $URL);
 				$Options[CURLOPT_HTTPHEADER] = array(
 					"content-type: application/json",
 					"host: ".$Host[2],
-					"authorization: Bearer ".$this->Access_Token
+					"authorization: Basic ".$encode
 				);
-			}
+				break;
+			case self::AUTHORIZATION_BEARER:
+				// check that access token is valid and refresh if needed
+				if($this->refresh())
+				{
+					$Host = \explode("/", $URL);
+					$Options[CURLOPT_HTTPHEADER] = array(
+						"content-type: application/json",
+						"host: ".$Host[2],
+						"authorization: Bearer ".$this->Access_Token
+					);
+				}
 		}
 		// differentiate between HTTP methods
 		if($Method == "POST")
@@ -435,10 +614,16 @@ class CREST extends CRESTBase
 			return $response;
 		}
 	}
+
 	/*
 	*	Determines which search function to use and starts search
+	*
+	*	@param array $array
+	*	@param \Crester\Core\RouteNode $routenode
+	*	
+	*	@return array
 	*/
-	protected function search($array, $routenode)
+	protected function search(array $array, $routenode)
 	{
 		switch($routenode->Type)
 		{
@@ -460,24 +645,35 @@ class CREST extends CRESTBase
 				throw new CRESTAPIException("Unknown RouteNode type: ".$routenode->Type, 101);
 		}
 	}
+	
 	/*
 	*	Starts Key-Value recursive search on multi-arrays
+	*
+	*	@param array $array
+	*	@param string $key
+	*	@param string $value
+	*
+	*	@return array
 	*/
-	protected function kvsearch($array, $key, $value)
+	protected function kvsearch(array $array, $key, $value)
 	{
 		$results = array();
 		$this->kvsearch_r($array, $key, $value, $results);
 		return $results;
 	}
+
 	/*
 	*	Does recursive search on multi-arrays to find key-value pairs
+	*
+	*	@param array $array
+	*	@param string $key
+	*	@param string $value
+	*	@param &array $results
+	*
+	*	@return void
 	*/
-	protected function kvsearch_r($array, $key, $value, &$results)
+	protected function kvsearch_r(array $array, $key, $value, &$results)
 	{
-		if (!\is_array($array)) {
-			return;
-		}
-	
 		if (isset($array[$key]) && $array[$key] == $value) {
 			$results[] = $array;
 		}
@@ -486,23 +682,30 @@ class CREST extends CRESTBase
 			$this->kvsearch_r($subarray, $key, $value, $results);
 		}
 	}
+	
 	/*
 	*	starts recursive search on multi-arrays to find key
+	*
+	*	@param array $array
+	*	@param string $key
+	*
+	*	@param array
 	*/
-	protected function ksearch($array, $key){
+	protected function ksearch(array $array, $key){
 		// add new search option for key-value
 		$results = array();
 		$this->ksearch_r($array, $key, $results);
 		return $results;
 	}
+
 	/*
 	*	Does recursive search on multi-arrays to find key
+	*
+	*	@param array $array
+	*	@param string $key
+	*	@param &array $results
 	*/
-	protected function ksearch_r($array, $key, &$results){
-		if (!\is_array($array)) {
-			return;
-		}
-	
+	protected function ksearch_r(array $array, $key, &$results){
 		if (isset($array[$key])) {
 			$results[] = $array[$key];
 		}

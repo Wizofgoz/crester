@@ -6,6 +6,7 @@ return [
 	'client_id' => 'your_client_id_here',
 	'secret_key' => 'your_secret_key_here',
 	'callback_url' => 'https://your-application.com/callback',
+	'authorize' => false,
 	'user_agent' => 'CREST-Handler',
 	'check_state' => false,
 	'limiter' => [
