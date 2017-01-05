@@ -35,11 +35,11 @@ class DBHandler implements CacheInterface
 	public function crestUpdate($Route, $Args, $Response)
 	{
 		//if there's an entry in the cache, update it
-		$stmt = $this->Driver->prepare("SELECT * FROM CREST_Cache WHERE Route = :route AND Args = :args");
+		$stmt = $this->Driver->prepare("SELECT id FROM CREST_Cache WHERE Route = :route AND Args = :args");
 		if($stmt->execute(array(":route"=>$Route, ":args"=>$Args)) > 0)
 		{
 			$Cached = $stmt->fetchAll();
-			$CCID = $Cached[0]['CCID'];
+			$CCID = $Cached[0]['id'];
 			$stmt = $this->Driver->prepare("UPDATE CREST_Cache SET Response = :response, CacheUntil = DATE_ADD(NOW(), INTERVAL 1 DAY) WHERE CCID = :ccid");
 			if($stmt->execute(array(":response"=>$Response, ":ccid"=>$CCID)) > 0)
 			{
