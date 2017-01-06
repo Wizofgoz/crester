@@ -1,38 +1,42 @@
-# CRESTer
+[![Latest Stable Version](https://poser.pugx.org/wizofgoz/crester/v/stable)](https://packagist.org/packages/wizofgoz/crester)
+[![Latest Unstable Version](https://poser.pugx.org/wizofgoz/crester/v/unstable)](https://packagist.org/packages/wizofgoz/crester)
+[![Total Downloads](https://poser.pugx.org/wizofgoz/crester/downloads)](https://packagist.org/packages/wizofgoz/crester)
+[![License](https://poser.pugx.org/wizofgoz/crester/license)](https://packagist.org/packages/wizofgoz/crester)
+# CRESTer 
 Eve Online's CREST API Library using fluent, english-like syntax
 
-# USAGE:
-1.  Set configuration in src/Config files
-    a.  CREST.php - for setting configuration concerning how the library talks with the API
+## USAGE:
+1.  Set configuration in src/Config files<br>
+    a.  CREST.php - for setting configuration concerning how the library talks with the API<br>
     b.  Cache.php - for setting configuration concerning a cache that the library utilizes
 2.  Initialize a Crester object
 3.  Redirect to Eve Online SSO
 4.  Handle Callback
 5.  Make calls on returned object
 
-# Functions
-##1.  Crester Class<br>
-    a.  redirect() - redirects visitor to Eve Online SSO for authentication
-    b.  handleCallback($AuthCode, $State = '') - creates a Crest object and handles final authentication with API
-    c.  fromRefreshToken($Token) - returns a Crest object authenticated by the given Refresh Token
-    d.  crest() - returns the current connection to the CREST API
-    e.  xml() - returns the current connection to the XML API
-##2.  Crest Class
-    a.  setAuthCode($AuthCode) - updates the connection's used Authorization Code and verifies it
-    b.  getStatus() - returns true/false whether the connection is ready to make calls to the API
-    c.  getToken() - returns the current token being used to make requests
-    d.  getRefreshToken() - returns the current refresh token
-    e.  getExpiration() - returns when the current token will expire
-    f.  node($key, $value = NULL) - adds a node to the route to traverse down the API tree
-    g.  get() - makes a GET call with the current route and returns the result as an array
-    h.  post($data = []) - makes a POST call with the current route and given data key/values and returns the result as an array
-    i.  put($data = []) - makes a PUT call with the current route and given data key/values and returns the result as an array
-    j.  delete() - makes a DELETE call with the current route and returns the result as an array
-    k.  verifyCode() - makes specialized call to verify Authorization Code (called automatically)
-    l.  getCharacterInfo() - makes specialized call to retrieve information about the logged-in character
-    m.  customCall($URL, $Method) - makes a call to the specified URL with the given method (GET, POST, PUT, DELETE)
+## Functions
+### Crester Class
+redirect() - redirects visitor to Eve Online SSO for authentication<br>
+handleCallback($AuthCode, $State = '') - creates a Crest object and handles final authentication with API<br>
+fromRefreshToken($Token) - returns a Crest object authenticated by the given Refresh Token<br>
+crest() - returns the current connection to the CREST API<br>
+xml() - returns the current connection to the XML API<br>
+### Crest Class
+setAuthCode($AuthCode) - updates the connection's used Authorization Code and verifies it<br>
+getStatus() - returns true/false whether the connection is ready to make calls to the API<br>
+getToken() - returns the current token being used to make requests<br>
+getRefreshToken() - returns the current refresh token<br>
+getExpiration() - returns when the current token will expire<br>
+node($key, $value = NULL) - adds a node to the route to traverse down the API tree<br>
+get() - makes a GET call with the current route and returns the result as an array<br>
+post($data = []) - makes a POST call with the current route and given data key/values and returns the result as an array<br>
+put($data = []) - makes a PUT call with the current route and given data key/values and returns the result as an array<br>
+delete() - makes a DELETE call with the current route and returns the result as an array<br>
+verifyCode() - makes specialized call to verify Authorization Code (called automatically)<br>
+getCharacterInfo() - makes specialized call to retrieve information about the logged-in character<br>
+customCall($URL, $Method) - makes a call to the specified URL with the given method (GET, POST, PUT, DELETE)<br>
 
-##Example 1: Getting Information for a Constallation
+## Example 1: Getting Information for a Constallation
 
 *Initialize the CRESTer object*<br><br>
 `$crester = new \Crester\Crester();`<br><br>
