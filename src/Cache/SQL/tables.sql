@@ -1,7 +1,18 @@
-CREATE TABLE `CREST_Cache` (
-
+CREATE TABLE IF NOT EXISTS `CREST_Cache` (
+	`id` INT (10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	`Route` TEXT,
+	`Args` TEXT,
+	`Response` TEXT,
+	`CacheUntil` DATETIME
 );
 
-CREATE TABLE `Cache` (
-
+CREATE TABLE IF NOT EXISTS `Cache` (
+	`id` INT(10) UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	`KeyID` VARCHAR(100),
+	`VCode` VARCHAR(100),
+	`Scope` VARCHAR(100),
+	`EndPoint` VARCHAR(100),
+	`Args` TEXT,
+	`Data` TEXT,
+	`CachedUntil` DATETIME
 );

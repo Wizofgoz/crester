@@ -1,8 +1,35 @@
 <?php
+/*
+*	MIT License
+*
+*	Copyright (c) 2016 Wizofgoz
+*
+*	Permission is hereby granted, free of charge, to any person obtaining a copy
+*	of this software and associated documentation files (the "Software"), to deal
+*	in the Software without restriction, including without limitation the rights
+*	to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*	copies of the Software, and to permit persons to whom the Software is
+*	furnished to do so, subject to the following conditions:
+*
+*	The above copyright notice and this permission notice shall be included in all
+*	copies or substantial portions of the Software.
+*
+*	THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*	IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*	FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*	AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*	LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*	OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+*	SOFTWARE.
+*/
 namespace Crester\Core;
 use \Crester\Core\CRESTBase;
 use \Crester\Cache\Cache;
 use \Crester\Exceptions\CRESTAPIException;
+use \Crester\Exceptions\APIResponseException;
+use \Crester\Exceptions\APIAuthException;
+use \Crester\Exceptions\ParseException;
+use \Crester\Exceptions\ResponseSearchException;
 class CREST extends CRESTBase implements \SplSubject
 {
 	/*
@@ -307,15 +334,17 @@ class CREST extends CRESTBase implements \SplSubject
 	*/
 	protected function determineAuth($authorize)
 	{
+		$authorize = $authorize === null ? $this->authorize : $authorize;
+
 		// if global is true, only reason to switch is if $authorize is false
 		if($this->authorize === true && $authorize === false)
 			return self::AUTHORIZATION_NONE;
 		
 		// if global is false and $authorize is not true, switch
-		if($this->authorize === false && $authorize !== true)
+		if($this->authorize === false && $authorize === false)
 			return self::AUTHORIZATION_NONE;
 
-		return self::AUTHORIZATION_BEARER;;
+		return self::AUTHORIZATION_BEARER;
 	}
 	
     /*
@@ -328,7 +357,7 @@ class CREST extends CRESTBase implements \SplSubject
 	public function verifyCode()
 	{
 		try{
-			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'authorization_code', 'code' => $this->Authorization_Code)))
+			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'authorization_code', 'code' => $this->Authorization_Code));
 			$Result = \json_decode($Result, true);
 			$this->Access_Token = $Result['access_token'];
 			$this->Verified_Code = true;
@@ -336,7 +365,7 @@ class CREST extends CRESTBase implements \SplSubject
 			//Access Tokens are valid for 20mins and must be refreshed after that
 			$this->RefreshTime = \time()+(60*20);
 		}catch(APIResponseException $e){
-			throw new APIAuthException($e->message);
+			throw new APIAuthException($e->getMessage());
 		}
 	}
 
@@ -413,7 +442,7 @@ class CREST extends CRESTBase implements \SplSubject
 	protected function refresh()
 	{
 		try{
-			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken)))
+			$Result = $this->callAPI(self::CREST_LOGIN, "POST", self::AUTHORIZATION_BASIC, array("grant_type" => 'refresh_token', 'refresh_token' => $this->RefreshToken));
 			$Result = \json_decode($Result, true);
 			$this->Access_Token = $Result['access_token'];
 			$this->RefreshToken = $Result['refresh_token'];
@@ -422,7 +451,7 @@ class CREST extends CRESTBase implements \SplSubject
 			$this->notify();
 			return true;
 		}catch(APIResponseException $e){
-			throw new APIAuthException($e->message);
+			throw new APIAuthException($e->getMessage());
 		}
 	}
 
@@ -430,6 +459,7 @@ class CREST extends CRESTBase implements \SplSubject
 	*	Takes in path (SplQueue) and start recursive calls
 	*
 	*	@param string $Method
+	*	@param integer $Authorize
 	*	@param array $Data
 	*
 	*	@return string|false
@@ -440,7 +470,7 @@ class CREST extends CRESTBase implements \SplSubject
 		if($this->APIRoute->count() > 0)
 		{
 			$this->UsedRoute = self::CREST_AUTH_ROOT;
-			$LeafURL = $this->recursiveCall(self::CREST_AUTH_ROOT);
+			$LeafURL = $this->recursiveCall(self::CREST_AUTH_ROOT, $Authorize);
 			// check cache
 			if($Result = $this->Cache->crestCheck($LeafURL, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value))
 			{
@@ -449,7 +479,7 @@ class CREST extends CRESTBase implements \SplSubject
 			// if nothing in cache, call API
 			else
 			{
-				$Result = $this->callAPI($LeafURL, $Method, self::AUTHORIZATION_BEARER, $Data))
+				$Result = $this->callAPI($LeafURL, $Method, $Authorize, $Data));
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				return $Result;
 			}
@@ -464,12 +494,13 @@ class CREST extends CRESTBase implements \SplSubject
 	*	Runs recursive calls down the route
 	*
 	*	@param string $URL
+	*	@param integer $Authorize
 	*
 	*	@return string|NULL
 	*
 	*	@throws \Crester\Exceptions\ResponseSearchException
 	*/
-	protected function recursiveCall($URL)
+	protected function recursiveCall($URL, $Authorize)
 	{
 		// check cache
 		if($Result = $this->Cache->crestCheck($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value))
@@ -480,7 +511,7 @@ class CREST extends CRESTBase implements \SplSubject
 		// if nothing in cache, call API
 		else
 		{
-			$Result = $this->callAPI($URL, "GET", self::AUTHORIZATION_BEARER, array()))
+			$Result = $this->callAPI($URL, "GET", $Authorize, array());
 			$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 			$NewURL = $this->search(\json_decode($Result, true), $this->APIRoute->bottom());
 		}
@@ -496,7 +527,7 @@ class CREST extends CRESTBase implements \SplSubject
 			// else, get next page
 			else
 			{
-				return $this->recursiveCall($NextPage[0]['href']);
+				return $this->recursiveCall($NextPage[0]['href'], $Authorize);
 			}
 		}
 		else
@@ -511,7 +542,7 @@ class CREST extends CRESTBase implements \SplSubject
 			{
 				// remove last part of route
 				$this->UsedRoute .= "|".$this->APIRoute->dequeue()->Key."|";
-				return $this->recursiveCall($NewURL[0]['href']);
+				return $this->recursiveCall($NewURL[0]['href'], $Authorize);
 			}
 		}
 	}
@@ -665,6 +696,8 @@ class CREST extends CRESTBase implements \SplSubject
 		}
 	
 		foreach ($array as $subarray) {
+			if(!is_array($subarray))
+				continue;
 			$this->kvsearch_r($subarray, $key, $value, $results);
 		}
 	}
@@ -697,6 +730,8 @@ class CREST extends CRESTBase implements \SplSubject
 		}
 	
 		foreach ($array as $subarray) {
+			if(!is_array($subarray))
+				continue;
 			$this->ksearch_r($subarray, $key, $results);
 		}
 	}
