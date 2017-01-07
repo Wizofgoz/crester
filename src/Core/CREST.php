@@ -479,7 +479,7 @@ class CREST extends CRESTBase implements \SplSubject
 			// if nothing in cache, call API
 			else
 			{
-				$Result = $this->callAPI($LeafURL, $Method, $Authorize, $Data));
+				$Result = $this->callAPI($LeafURL, $Method, $Authorize, $Data);
 				$this->Cache->crestUpdate($this->UsedRoute, $this->APIRoute->bottom()->Key.' '.$this->APIRoute->bottom()->Value, $Result);
 				return $Result;
 			}
