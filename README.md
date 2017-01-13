@@ -21,6 +21,7 @@ handleCallback($AuthCode, $State = '') - creates a Crest object and handles fina
 fromRefreshToken($Token) - returns a Crest object authenticated by the given Refresh Token<br>
 crest() - returns the current connection to the CREST API<br>
 xml() - returns the current connection to the XML API<br>
+
 ### Crest Class
 setAuthCode($AuthCode) - updates the connection's used Authorization Code and verifies it<br>
 getStatus() - returns true/false whether the connection is ready to make calls to the API<br>
@@ -36,7 +37,25 @@ verifyCode() - makes specialized call to verify Authorization Code (called autom
 getCharacterInfo() - makes specialized call to retrieve information about the logged-in character<br>
 customCall($URL, $Method) - makes a call to the specified URL with the given method (GET, POST, PUT, DELETE)<br>
 
-## Example 1: Getting Information for a Constallation
+### XML Class
+setToken($Token) - sets the access token to use when interacting with API (called automatically)<br>
+setKey($Key) - sets call to use API Key Authorization. $Key is an associative array with indexes "KeyID" and "VCode"<br>
+scope($Scope) - sets the scope of the call<br>
+endPoint($EndPoint) - sets the endpoint the call will use<br>
+accessType($AccessType) - sets the type of access the call will request. Only for CREST Authorization<br>
+get($Args = [], $Key = NULL) - makes the built call against the API. $Key is an alternate to using setKey() and uses the same syntax<br>
+clear() - clears the currently built call (called automatically by get())<br>
+
+## Adding Nodes
+Nodes that are added to specify the route that a call will use to reach it's destination can follow one of three formats:
+
+### Simple Key Search
+In Example 1 below, the first node added to the route uses a simple key search. In this case, after calling the base URL, CRESTer will search the returned json for a key called "constellations" and calls the URL in that item's "href".
+
+### Key-Value Search
+Also demonstrated in Example 1 is adding a key-value search node, shown by the second call to node(). In the example, the node is told to search for a key called "name" that has a value of "Joas".
+
+## Example 1: Getting Information for a Constellation
 
 *Initialize the CRESTer object*<br><br>
 `$crester = new \Crester\Crester();`<br><br>
