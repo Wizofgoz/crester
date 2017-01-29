@@ -129,6 +129,13 @@ class CREST extends CRESTBase implements \SplSubject
 	*	@var \SplObjectStorage
 	*/
 	protected $observers;
+
+	/*
+	*	HTTP Client used when communicating with API
+	*
+	*	@var GuzzleHttp\Client
+	*/
+	protected $client;
 	
 	/*
 	*	Constructor
@@ -150,6 +157,12 @@ class CREST extends CRESTBase implements \SplSubject
 		$this->RateLimiter = $limiter;
 		$this->Cache = $cache;
 		$this->observers = new \SplObjectStorage();
+		$this->client = new GuzzleHttp\Client([
+			'timeout' => 30,
+			'headers' => [
+				'accept' => 'base64'
+			]
+		]);
 		// if connection requires authorization
 		if($this->authorize)
 		{
@@ -561,73 +574,52 @@ class CREST extends CRESTBase implements \SplSubject
 	*/
 	protected function callAPI($URL, $Method, $AuthorizationType, array $Data = [])
 	{
-		// set common settings
-		$Options = array(
-			CURLOPT_URL => $URL,
-			CURLOPT_RETURNTRANSFER => true,
-			CURLOPT_ENCODING => "base64",
-			CURLOPT_MAXREDIRS => 10,
-			CURLOPT_TIMEOUT => 30,
-			CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1
-		);
+		$headers = array();
 		// differentiate between authentication methods
 		switch($AuthorizationType)
 		{
 			case self::AUTHORIZATION_BASIC:
 				$encode=base64_encode($this->client_id.":".$this->secret_key);
 				$Host = explode("/", $URL);
-				$Options[CURLOPT_HTTPHEADER] = array(
+				$headers = array_merge(array(
 					"content-type: application/json",
 					"host: ".$Host[2],
 					"authorization: Basic ".$encode
-				);
+				), $headers);
 				break;
 			case self::AUTHORIZATION_BEARER:
 				// check that access token is valid and refresh if needed
 				if($this->refresh())
 				{
 					$Host = \explode("/", $URL);
-					$Options[CURLOPT_HTTPHEADER] = array(
+					headers = array_merge(array(
 						"content-type: application/json",
 						"host: ".$Host[2],
 						"authorization: Bearer ".$this->Access_Token
-					);
+					), $headers);
 				}
 		}
-		// differentiate between HTTP methods
-		if($Method == "POST")
-		{
-			$Options[CURLOPT_POST] = true;
-			$Options[CURLOPT_POSTFIELDS] = json_encode($Data);
-		}
-		elseif($Method == "GET")
-		{
-			$Options[CURLOPT_HTTPGET] = true;
-		}
-		elseif($Method == "PUT")
-		{
-			$Options[CURLOPT_PUT] = true;
-			$Options[CURLOPT_POSTFIELDS] = json_encode($Data);
-		}
-		elseif($Method == "DELETE")
-		{
-			$Options[CURLOPT_CUSTOMREQUEST]="DELETE";
-		}
+		$request = new Request($Method, $URL, $headers);
 		// apply options and send request
 		$this->RateLimiter->limit();
-		$curl = \curl_init();
-		\curl_setopt_array($curl, $Options);
-		$response = \curl_exec($curl);
-		$err = \curl_error($curl);
-		\curl_close($curl);
-		if($err)
+		if(empty($Data))
+		{
+			$response = $this->client->send($request);
+		}
+		else
+		{
+			$response = $this->client->send($request, ['json' => json_encode($Data)]);
+		}
+		$successCodes = array(200, 201, 202);
+		if(!in_array($response->getStatusCode(), $successCodes))
 		{
 			throw new APIResponseException("cURL Error #:" . $err);
 		}
-		$arr = json_decode($response, true);
+		$body = (string)$response->getBody();
+		$arr = json_decode($body, true);
 		if(isset($arr['error']))
 			throw new APIResponseException($arr['error'].'->'.$arr['error_description']);
-		return $response;
+		return $body;
 	}
 
 	/*
