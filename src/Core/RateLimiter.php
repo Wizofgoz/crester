@@ -22,28 +22,34 @@
 *   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 *   SOFTWARE.
 */
+
 namespace Crester\Core;
+
 class RateLimiter
 {
     protected $timestamp = 0;
     protected $calls = 0;
     protected $limit;
     protected $frequency;
+
     /**
      * Create new RateLimiter
-     * Default 60 requests every 60 seconds
+     * Default 60 requests every 60 seconds.
      *
-     * @param integer $limit Optional calls per frequency
-     * @param integer $frequency Optional frequency in seconds
+     * @param int $limit     Optional calls per frequency
+     * @param int $frequency Optional frequency in seconds
      */
-    public function __construct($limit = 60, $frequency = 60) {
+    public function __construct($limit = 60, $frequency = 60)
+    {
         $this->limit = $limit;
         $this->frequency = $frequency;
     }
+
     /**
-     * Call before every API request
+     * Call before every API request.
      */
-    public function limit() {
+    public function limit()
+    {
         // Increment call counter every request
         $this->calls++;
         // Allow burst of requests until it reaches limit threshold
@@ -64,4 +70,3 @@ class RateLimiter
         }
     }
 }
-?>
