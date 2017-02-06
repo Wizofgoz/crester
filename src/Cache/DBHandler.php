@@ -29,7 +29,7 @@ class DBHandler implements CacheInterface
 	public function __construct(array $Config)
 	{
 		try {
-			$conn = new PDO($Config['DB_Type']":host=".$Config['Host'].";dbname=".$Config['Name'], $Config['User'], $Config['Password']);
+			$conn = new PDO($Config['DB_Type'].":host=".$Config['Host'].";dbname=".$Config['Name'], $Config['User'], $Config['Password']);
 			// set the PDO error mode to exception
 			$conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 			return $conn;
