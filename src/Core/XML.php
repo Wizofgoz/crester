@@ -346,7 +346,7 @@ class XMLHandler extends XMLBase implements \SplObserver
 				$ArgStr .= "&".$name."=".$value;
 			}
 		}
-		return self::API_BASE.$this->Scope."/".$this->EndPoint.self::URL_EXTENSION.$this->GetAuthParameters().$this->ArgStr
+		return self::API_BASE.$this->Scope."/".$this->EndPoint.self::URL_EXTENSION.$this->GetAuthParameters().$this->ArgStr;
 	}
 
 	/*
